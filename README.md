@@ -141,3 +141,9 @@ Ideas for future versions that need validation through implementation: [FUTURE.m
 ---
 
 *MAOS is not a finished security truth, but a growing security architecture with the explicit goal of maturing into robust and implementable components.*
+
+## Contact & Response Time
+
+For questions, feedback, or collaboration proposals, please open a [GitHub Issue](https://github.com/Udo767/maos/issues).
+
+I may not respond immediately — this is a personal project maintained in my spare time. I read every issue and will respond as soon as I can.
