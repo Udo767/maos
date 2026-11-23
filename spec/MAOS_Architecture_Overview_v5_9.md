@@ -2,8 +2,8 @@
 
 ## Architecture Overview
 
-**Version:** 5.8 — Practical Convergence Edition
-**Date:** March 2026
+**Version:** 5.9 — Implementability and Consistency Edition
+**Date:** November 2026
 **Author:** Udo Hellmann
 
 *The core architecture in 18 pages — condensed from the full 4,500+ line specification.*
@@ -51,7 +51,7 @@ Ring 0 (Kernel) contains the DSC, Dispatcher, Commit Layer, WAL, Boot Manager, a
 
 ## 2. The Security Pipeline
 
-Every agent action with side effects passes through a seven-stage pipeline. The DSC performs seven deterministic checks. The SSE adds semantic analysis as defense-in-depth. Both can block.
+Every agent action with side effects passes through a seven-stage pipeline. Resource conflicts are resolved inside the pipeline (optimistic concurrency with lock leases), and every external effect is handled by its effect class: Reversible (snapshot and restore), Compensable (pre-evaluated counter-action), or Irreversible (human confirmation, short send delay, never retried blindly). The DSC performs seven deterministic checks. The SSE adds semantic analysis as defense-in-depth. Both can block.
 
 ```
 Agent Intent
@@ -88,8 +88,8 @@ Every check is deterministic — no LLM judgment, no interpretation. If any chec
 | 3 | Budget Verification — token/API budget | Cost control |
 | 4 | IFC Label Validation — information flow control | Data protection |
 | 5 | Mandatory Rule Compliance — 11 constitutional rules | Absolute security boundaries |
-| 6 | Lock & Concurrency Check — resource conflicts | Consistency |
-| 7 | DSC Pre-Filter — prompt injection patterns | LLM protection |
+| 6 | Revocation Epoch — node's revocation state is current | No use of revoked permissions |
+| 7 | Structural Pre-Filter — known prompt injection patterns (deterministic, intentionally incomplete; additive signed updates) | LLM protection |
 
 *Residual risk: The semantic gap between DSC (syntactic, per-action) and SSE (semantic, per-action) cannot be fully closed. Aggregate Monitoring detects volume-based patterns.*
 
@@ -377,10 +377,10 @@ MAOS is the first complete reference architecture for secure multi-agent systems
 
 The five core mechanisms — Commit Layer, Capability Tokens, Sentry/Gateways, WAL, and DSC — form the minimal implementation that would already make MAOS the most secure agent framework available.
 
-The complete technical specification (v5.8, 4,500+ lines) accompanies this document as a reference. It contains the formal definitions of all mechanisms, security invariants, conformance requirements, and the complete glossary.
+The complete technical specification (v5.9, 4,500+ lines) accompanies this document as a reference. It contains the formal definitions of all mechanisms, security invariants, conformance requirements, and the complete glossary.
 
 ---
 
-*MAOS — Multi-Agent Operating System v5.8 — Practical Convergence Edition.*
+*MAOS — Multi-Agent Operating System v5.9 — Implementability and Consistency Edition.*
 
 *© 2026 Udo Hellmann. Released under Apache 2.0 License.*

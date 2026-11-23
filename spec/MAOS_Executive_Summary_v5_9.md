@@ -2,8 +2,8 @@
 
 ## Executive Summary
 
-**Version:** 5.8 — Practical Convergence Edition
-**Date:** March 2026
+**Version:** 5.9 — Implementability and Consistency Edition
+**Date:** November 2026
 **Author:** Udo Hellmann
 
 ---
@@ -14,7 +14,7 @@ AI agents can send emails, execute code, call APIs, and modify databases today. 
 
 Current agent frameworks (AutoGen, CrewAI, LangGraph, Google ADK) treat security as an afterthought — a configuration option a developer can set or forget. None offers capability-based access control, information flow tracking, deterministic security decisions independent of the LLM, or formal isolation boundaries between agents.
 
-The EU AI Act (August 2026) requires transparency, human oversight, robustness, and logging for high-risk AI systems. No existing agent architecture meets these requirements.
+The EU AI Act requires transparency, human oversight, robustness, and logging for high-risk AI systems, with obligations phasing in from 2026 onward. No existing agent framework is designed around these requirements.
 
 ---
 
@@ -38,11 +38,11 @@ Agent Intent → Sentry + Gateways → DSC (7 Checks) → SSE (additive) → Com
 
 ### 1. Deterministic Security Independent of the LLM
 
-The Deterministic Security Core (DSC) is not an LLM. It is pure, deterministic, formally verifiable code. It makes binary decisions — allow or deny — based on mathematical checks, not semantic interpretation. Seven checks in fixed order: Capability Token, Rate Limit, Budget, IFC Label, Mandatory Rules, Concurrency, Content Filter. If the LLM is compromised, the DSC remains intact.
+The Deterministic Security Core (DSC) is not an LLM. It is pure, deterministic, formally verifiable code. It makes binary decisions — allow or deny — based on mathematical checks, not semantic interpretation. Seven checks in fixed order: Capability Token, Rate Limit, Budget, IFC Label, Mandatory Rules, Revocation Epoch, Structural Pre-Filter. Resource conflicts are handled separately by the Commit Layer's concurrency control. If the LLM is compromised, the DSC remains intact.
 
 ### 2. Commit Layer — The Only Path to the Outside World
 
-No agent can touch the outside world directly. Every action with side effects (sending email, modifying files, calling APIs) passes through the Commit Layer — a central pipeline that validates, logs, and can roll back. This is the fundamental difference from every existing framework where agents simply make API calls.
+No agent can touch the outside world directly. Every action with side effects (sending email, modifying files, calling APIs) passes through the Commit Layer — a central pipeline that validates, logs, and handles every effect according to its class: reversible effects are rolled back, compensable effects are compensated, and irreversible effects (a sent email, a payment) require human confirmation and are never retried blindly. This is the fundamental difference from every existing framework where agents simply make API calls.
 
 ### 3. Capability Tokens — Cryptographically Signed Permissions
 
@@ -97,15 +97,15 @@ All profiles share the eleven Constitutional Mandatory Rules — the hard securi
 
 **Research:** Complex, iterative prompt chains with the graphical orchestrator. Parallel processing across multiple models (local and external). Wisdom Pool for collective inter-agent learning.
 
-**Regulated Environments:** Isolated profile with HSM-stored keys, TPM attestation, 7-year audit logs. EU AI Act compliance by design.
+**Regulated Environments:** Isolated profile with HSM-stored keys, TPM attestation, 7-year audit logs. Designed to support EU AI Act obligations — a design alignment, not a certification claim.
 
 ---
 
 ## Next Steps
 
-MAOS is a complete reference architecture specified in a technical specification with over 4,500 lines and eight companion documents. The architecture is ready for implementation.
+MAOS is a reference architecture specified in a technical specification with over 4,500 lines and seven companion documents. The normative core is specified in enough detail to begin implementation; the maturity of each component is declared as specified, prototyped, implemented, tested, or verified (Technical Specification, Appendix B).
 
-The full technical specification (v5.8), the Architecture Overview with diagrams, and all companion documents are available as open source at **github.com/Udo767/maos**.
+The full technical specification (v5.9), the Architecture Overview with diagrams, and all companion documents are available as open source at **github.com/Udo767/maos**.
 
 For questions, collaboration proposals, or contributions: please open a GitHub Issue.
 

@@ -20,6 +20,8 @@ These directions are promising but not yet specified.
 
 - **Domain extension framework:** The medical domain extension exists as a reference implementation. Other domains (legal, financial, logistics) need their own safety profiles, terminology, and HACF configurations.
 
+- **Value-level information flow inside an agent:** MAOS IFC labels messages, intents, and Pods. Research prototypes (CaMeL, FIDES; spec §6.5) label individual values inside one agent's plan and enforce policies on each tool call. Worth evaluating as a refinement of IFC within a single agent's reasoning, once a reference implementation of the Commit Layer exists to measure the overhead against.
+
 - **Multi-tenant isolation:** Cloud deployment (Mode 4) requires full user isolation. The spec mentions it but doesn't detail the tenant boundary model.
 
 ## Needs community input

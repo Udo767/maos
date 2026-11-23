@@ -10,7 +10,7 @@ AI agents can send emails, execute code, call APIs, and modify databases today. 
 
 Current agent frameworks (AutoGen, CrewAI, LangGraph, Google ADK) treat security as an afterthought. None offers capability-based access control, information flow tracking, deterministic security decisions independent of the LLM, or formal isolation boundaries between agents.
 
-The EU AI Act (August 2026) will require transparency, human oversight, robustness, and logging for high-risk AI systems. No existing agent architecture meets these requirements.
+The EU AI Act requires transparency, human oversight, robustness, and logging for high-risk AI systems, with obligations phasing in from 2026 onward. No existing agent framework is designed around these requirements.
 
 ## The Solution
 
@@ -18,7 +18,7 @@ MAOS is an operating system architecture for AI agents. Five core mechanisms tha
 
 | Mechanism | What it does |
 |---|---|
-| **Commit Layer** | Single chokepoint for all external effects — no agent can touch the outside world without validation, logging, and rollback capability |
+| **Commit Layer** | Single chokepoint for all external effects — no agent can touch the outside world without validation, logging, and a safeguard matched to the effect: rollback, compensation, or human confirmation |
 | **Capability Tokens** | Cryptographically signed, scoped, time-limited permissions — an email agent can send emails but cannot access the filesystem |
 | **Deterministic Security Core (DSC)** | Pure deterministic code making binary allow/deny decisions — cannot be "persuaded", "confused", or "jailbroken", independent of any LLM |
 | **Sentry + 6 Gateways** | Every agent sits behind controlled entry/exit points it cannot see or modify |
@@ -27,7 +27,7 @@ MAOS is an operating system architecture for AI agents. Five core mechanisms tha
 ```
 Agent Intent → Sentry → DSC (7 checks) → Commit Layer → WAL → External Effect
                           ↓ DENY                ↓
-                        Blocked            Logged + Rollbackable
+                        Blocked            Logged + safeguarded per effect class
 ```
 
 ## How MAOS compares
@@ -43,6 +43,8 @@ Agent Intent → Sentry → DSC (7 checks) → Commit Layer → WAL → External
 | Self-Healing Quarantine (5 stages) | — | — | — | — | ✓ |
 | Trusted Display Path | — | — | — | — | ✓ |
 | EU AI Act Design Alignment | Partial | Partial | Partial | Partial | ✓ |
+
+The table compares production frameworks. Research prototypes such as CaMeL and FIDES address individual mechanisms (capabilities, information flow control) inside a single agent; MAOS's contribution is the combination across agents and nodes. See §6.5 of the specification.
 
 ## Three Security Profiles
 
@@ -60,11 +62,11 @@ Start here, go deeper as needed:
 
 | Document | Pages | For whom |
 |---|---|---|
-| **[Executive Summary](spec/MAOS_Executive_Summary_v5_8.md)** | 4 | Decision-makers — the "why" in 5 minutes |
-| **[Architecture Overview](spec/MAOS_Architecture_Overview_v5_8.md)** | 18 | Architects — the "how" with diagrams |
-| **[Technical Specification v5.8](spec/MAOS_Technical_Specification_v5_8.md)** | 4,500+ lines | Implementers — the complete "what" |
+| **[Executive Summary](spec/MAOS_Executive_Summary_v5_9.md)** | 4 | Decision-makers — the "why" in 5 minutes |
+| **[Architecture Overview](spec/MAOS_Architecture_Overview_v5_9.md)** | 18 | Architects — the "how" with diagrams |
+| **[Technical Specification v5.9](spec/MAOS_Technical_Specification_v5_9.md)** | 4,500+ lines | Implementers — the complete "what" |
 
-Companion documents:
+Companion documents (v5.8 set, valid for v5.9 — where they differ, the specification prevails):
 
 | Document | Role |
 |---|---|
@@ -74,6 +76,7 @@ Companion documents:
 | [Companion Specification](companion/MAOS_Companion_Specification_v5_8.md) | Operational procedures, deployment guidance |
 | [Agent & Human Views](companion/MAOS_Agent_Human_Views_v5_8.md) | Philosophical foundation, HACF design rationale |
 | [Redundancy Guide](companion/MAOS_Redundancy_Guide_v5_8.md) | High availability, split-brain prevention |
+| [Zero Trust Evaluation](companion/MAOS_Zero_Trust_Evaluation_v5_8.md) | Assessment against the seven tenets of NIST SP 800-207 |
 
 ## Publication Note
 
@@ -129,6 +132,7 @@ Ideas for future versions that need validation through implementation: [FUTURE.m
 | v5.6 | Adversarial Seam Hardening |
 | v5.7 | Precision, Defaults, and Conformance Hardening |
 | v5.8 | Practical Convergence |
+| v5.9 | Implementability and Consistency |
 
 ## Author
 

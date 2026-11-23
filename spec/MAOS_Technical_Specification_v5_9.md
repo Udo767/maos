@@ -1,11 +1,11 @@
 # MAOS — Multi-Agent Operating System
 
-## Technical Specification v5.8
+## Technical Specification v5.9
 
-**Version:** 5.8.0
-**Date:** March 31, 2026
+**Version:** 5.9.0
+**Date:** November 23, 2026
 **Author:** Udo Hellmann
-**Status:** Final — Practical Convergence Edition
+**Status:** Final — Implementability and Consistency Edition
 **Classification:** Public — Open Source
 
 ---
@@ -39,6 +39,7 @@
 | v5.6 | March 2026 | Adversarial Seam Hardening Edition. Incorporated the highest-priority red-team findings into the core: trusted decision packets and stronger human-interface controls, observation-path hardening, boot/recovery validation constraints, tighter distributed disconnect semantics for Pawns and Sentinels, semantic-safety safeguards for formally allowed but contextually wrong actions, immune-abuse and knowledge-poisoning controls, and explicit seam-focused conformance requirements against HMI deception, recovery-window abuse, weakest-node effects, and specification-level common-cause failures. |
 | v5.7 | March 2026 | Precision, Defaults, and Conformance Hardening Edition. Clarified Standard profile security boundaries; converted aggregate-monitoring examples into normative defaults with calibration guidance; added default capability-token TTLs and stale-epoch bounds; resolved Quarantine Stage 4 profile semantics; documented reasoning-state-loss and static fever-threshold residual risks; defined minimum MAC-policy content per profile; extended A2A outbound monitoring for information-leak risk; and strengthened ECS cumulative-abuse detection with profile-sensitive recovery gating. |
 | v5.8 | March 2026 | Practical Convergence Edition. Three targeted additions from LLM Orchestrator cross-evaluation: mission_statement field for Task Plans enabling multi-agent goal coherence (§17.1); token generation rate as a Behavioral Fingerprint indicator for compromise and hallucination-pressure detection (§41.2); Fast Apoptosis path in Standard profile allowing Quarantine Cascade shortcut for deterministically verifiable hard violations (§37.11.2). No new mechanisms introduced; all changes extend existing architecture elements. |
+| v5.9 | November 2026 | Implementability and Consistency Edition. Effect classes for external effects (Reversible / Compensable / Irreversible) replace the implicit assumption that every external effect can be rolled back (§13.4, Rule 5, §35). Idempotency keys, lock leases with fencing tokens, and an explicit UNCERTAIN outcome state close the double-execution window after lock timeout or crash (§13.3, §13.5, §14.2). Enforcement-point table separates per-request-decidable Mandatory Rules from system invariants and removes the circularity of DSC Check 5 (§10.2.1, §15.3). Additive, signed pattern updates for DSC Check 7 (§15.7.4). Honest Rule-Based Mode wording, Layer-1 violations now logged as Danger Signals, SSE-Required queuing reflected in the pipeline (§15.5, §15.6). Rule 11 enforced by supervision leases rather than agent self-termination. Consistency fixes: audit hash SHA-3-256 throughout, §14a and §29.4 numbering, duplicate §13.3 paragraph removed, wrong rule reference in §15.9, hot-spare sync interval, agent-migration references now point to §41.9. Related research systems added (§6.5). |
 
 ---
 
@@ -49,6 +50,10 @@ Version 5.7 is a precision and defaults release. It keeps the v5.6 seam hardenin
 ## Version 5.8 Note
 
 Version 5.8 is a practical convergence release. It incorporates three ideas from a cross-evaluation with an independent LLM Orchestrator specification (V0.1), each self-reviewed for implementability, consistency with existing architecture, and adherence to the v5.7 principle of adding no new mechanisms. The mission_statement field addresses multi-agent goal coherence — a gap identified when evaluating medical and research use cases where multiple agents must produce mutually consistent results. The token generation rate indicator adds a concrete, measurable anomaly signal to the Behavioral Fingerprint. The Fast Apoptosis path simplifies the Quarantine Cascade for Standard profile, reducing implementation complexity for Phase 1 deployments without weakening security in Hardened or Isolated profiles.
+
+## Version 5.9 Note
+
+Version 5.9 is an implementability and consistency release. It follows the v5.7 principle of adding no large new mechanisms; instead it closes gaps where a faithful implementer would otherwise fail or silently weaken a guarantee. The central correction concerns the Commit Layer: an external effect such as a sent email or an executed payment cannot be rolled back, so v5.9 classifies every effect as Reversible, Compensable, or Irreversible and defines failure, undo, and recovery behavior per class. The second correction concerns exactly-once execution: v5.9 introduces idempotency keys, lock leases with fencing tokens, and an UNCERTAIN outcome state, and it states plainly that exactly-once cannot be guaranteed against targets that support neither idempotency keys nor outcome queries. The third correction separates Mandatory Rules that the DSC can decide per request from those that are system invariants enforced elsewhere. The v5.8 companion set remains valid for v5.9; where a companion document differs from this specification, this specification prevails (Companion Release Manifest, release policy).
 
 ## Publication Note
 
@@ -302,7 +307,7 @@ The design objectives above are binding targets, but their conformance scope dif
 
 ### 2.2 Conventions
 
-All code examples in this specification use TypeScript with ES2022 features targeting Node.js version 20 or later. All timestamps use ISO 8601 format in UTC. All identifiers use UUIDv7, which is time-sortable and therefore efficient for database indexing and log correlation. Message sizes are measured as UTF-8 encoded JSON. Encryption uses AES-256-GCM for data at rest and TLS 1.3 for data in transit. Integrity hashing uses SHA-256, and credential hashing uses bcrypt.
+All code examples in this specification use TypeScript with ES2022 features targeting Node.js version 20 or later. All timestamps use ISO 8601 format in UTC. All identifiers use UUIDv7, which is time-sortable and therefore efficient for database indexing and log correlation. Message sizes are measured as UTF-8 encoded JSON. Encryption uses AES-256-GCM for data at rest and TLS 1.3 for data in transit. Integrity hashing uses SHA-3-256 (Section 14a.3), and credential hashing uses bcrypt.
 
 
 ## 3. Core Design Philosophy
@@ -609,6 +614,18 @@ For enterprises: Use MAOS as the trusted execution environment for multi-agent s
 For the ecosystem: MAOS adopts open standards (MCP for tools, ACP for agent communication, AID as a potentially open agent interface). Agents built for MAOS can interoperate with the broader multi-agent ecosystem through standard protocols.
 
 
+### 6.5 Related Research Systems
+
+The comparison in Section 6.3 covers production frameworks. Research prototypes address parts of the MAOS problem space and are the closest related work for individual mechanisms; claims of uniqueness in this specification refer to the combination of mechanisms in one architecture, not to each mechanism in isolation.
+
+- **AIOS** (Rutgers University) — an LLM agent operating system with scheduling, context, memory, and tool management as kernel services. It shares the OS framing but focuses on resource management rather than enforced security boundaries.
+- **Dual-LLM pattern** — a privileged model that never sees untrusted content, paired with a quarantined model that processes it. The SSE split into Supervisory and Inspection Evaluators (Section 15.4) applies the same idea to security evaluation.
+- **CaMeL** (Google DeepMind and collaborators, 2025) — separates control flow from data flow: a privileged model writes the plan, untrusted data is processed by a quarantined model, and capabilities attached to values are enforced by an interpreter against security policies. CaMeL tracks information flow at the granularity of individual values inside one agent's plan; MAOS tracks it at the granularity of messages, intents, and Pods across agents.
+- **FIDES** (Microsoft Research, 2025) — information-flow control for agent planners with confidentiality and integrity labels and deterministic policy enforcement on tool calls.
+
+These systems are complementary. Value-level labels as in CaMeL or FIDES are a candidate refinement of MAOS IFC inside a single agent's reasoning (FUTURE.md), while MAOS contributes the cross-agent, cross-node enforcement layer (Commit Layer, Capability Tokens, Pod isolation) that these prototypes do not define.
+
+
 # Part III — MAOS Core: Kernel Architecture
 
 ## 7. Protection Rings and Trust Boundaries
@@ -804,11 +821,11 @@ This distinction preserves the system's absolute safety boundaries while allowin
 
 **Rule 2: Decrypted keys never exist in agent address space.** When an agent needs to make an API call that requires authentication, the Key Manager decrypts the key, makes the call on the agent's behalf, and then wipes the decrypted key from memory. The agent never sees the key, even in encrypted form. In distributed deployments, the Key Session Proxy provides time-limited access without exposing the actual key.
 
-**Rule 3: The Audit Log is append-only with hash chaining.** Every entry in the audit log includes a SHA-256 hash of the previous entry, creating a tamper-evident chain. No entry can be modified or deleted. If the chain is broken (indicating tampering), the system enters Emergency Mode and refuses to operate until an administrator investigates.
+**Rule 3: The Audit Log is append-only with hash chaining.** Every entry in the audit log includes a SHA-3-256 hash (Section 14a.3) of the previous entry, creating a tamper-evident chain. No entry can be modified or deleted. If the chain is broken (indicating tampering), the system enters Emergency Mode and refuses to operate until an administrator investigates.
 
 **Rule 4: No ring escalation without full re-onboarding.** An agent cannot move from Ring 3 to Ring 2, or from Ring 2 to Ring 1, without going through the complete onboarding process again, including all five test stages and user consent. This prevents gradual privilege escalation attacks where an agent slowly acquires more access over time.
 
-**Rule 5: Rollback Zone snapshot before any destructive action.** Before any action that modifies external state (sending an email, deleting a file, updating a database), the Commit Layer takes a snapshot of the current state and stores it in the Rollback Zone. This snapshot enables undo operations within the configurable hold period.
+**Rule 5: No external effect without a declared effect class and its safeguard.** Every action that modifies external state carries an effect class (Section 13.4), declared by the tool or connector manifest and never by the agent itself; an intent without a declared class is treated as Irreversible. Before a Reversible action, the Commit Layer takes a snapshot of the affected state and stores it in the Rollback Zone. A Compensable action is admitted only together with a pre-evaluated compensating intent. An Irreversible action is never retried automatically after an uncertain outcome, requires at least HACF Level 2 (Section 50.4), and is deferred for the hold period wherever the target permits deferral (Section 35). This rule replaces the v5.8 wording "Rollback Zone snapshot before any destructive action", which implied that every external effect could be undone.
 
 **Rule 6: No commit without Deterministic Security Core clearance.** Every intent that reaches the Commit Layer has already been evaluated and approved by the DSC (Section 15.3). The Commit Layer verifies this approval before executing. If the DSC approval is missing or invalid, the commit is rejected. The Semantic Security Evaluator (Section 15.4) provides additional evaluation when available but is not required for Mandatory Rule 6 compliance — the system's fundamental security never depends on an LLM.
 
@@ -822,6 +839,28 @@ This distinction preserves the system's absolute safety boundaries while allowin
 
 **Rule 11: No Unsupervised Execution.** No AI agent may execute on any machine — local or remote — without a running MAOS instance supervising it. An agent that loses contact with its supervising MAOS instance must immediately enter a safe state: complete no new actions, commit no new intents, and attempt reconnection. If reconnection fails within the configured timeout (default sixty seconds), the agent must terminate itself. This rule extends the Protection Ring guarantee from a single machine to any number of machines: there is no location in the system where an agent runs without Ring enforcement, Security Agent oversight, and Commit Layer serialization. Deploying an agent to a machine without MAOS is architecturally equivalent to running a process without an operating system — it is not permitted.
 
+*Enforcement.* Self-termination is the expected behavior of a healthy agent, but it is not the guarantee, because a compromised agent cannot be relied upon to terminate itself. The guarantee is provided from outside the agent: every agent holds a supervision lease issued by its supervising MAOS instance, and its capability tokens, Key Session Proxy access, and Gateway routes are bound to that lease. When the lease is not renewed within the timeout, the Sentry and Gateways of the hosting node revoke the agent's routes, the Key Session Proxy refuses further sessions, and DSC Check 1 rejects every token bound to the expired lease. An agent that keeps running after lease expiry can therefore still compute, but it can no longer reach any resource, key, or external effect.
+
+
+#### 10.2.1 Enforcement Points of the Mandatory Rules
+
+The eleven rules are of two kinds. Some can be decided for an individual request and are evaluated by DSC Check 5. Others are properties of the system as a whole: they cannot be decided by looking at one request and are enforced by architecture, by the Commit Layer, or by monitoring. Evaluating Rule 6 inside the DSC would be circular, because Rule 6 is the requirement that the DSC has been consulted. The following table is normative.
+
+| Rule | Kind | Enforced by | Evaluated in DSC Check 5 |
+|------|------|-------------|--------------------------|
+| 1 Security configuration immutable | System invariant | DSC Layer 4 (read-only memory, signed source); configuration hash in every Security Heartbeat | No |
+| 2 No decrypted keys in agent space | System invariant | Secure Key Manager, Key Session Proxy, Pod isolation | No |
+| 3 Audit log append-only, hash-chained | System invariant | Audit subsystem; chain verified at boot and periodically | No |
+| 4 No ring escalation without re-onboarding | Per request | Intents requesting a ring change without a valid onboarding attestation are denied | Yes |
+| 5 Effect class and safeguard | Per request | Intent must declare an effect class from the manifest; Reversible needs a snapshot target, Compensable a compensating intent, Irreversible the required HACF level; Commit Layer Stage 3 executes the safeguard | Yes |
+| 6 No commit without DSC clearance | Commit-time invariant | Commit Layer verifies the signed Voter verdict before Stage 1 | No (would be circular) |
+| 7 Budget hard limits | Per request | DSC Check 3 | Covered by Check 3 |
+| 8 WAL before execution | System invariant | Commit Layer Stage 1 | No |
+| 9 System Call Gateway not bypassable | System invariant | Pod isolation (Security Layer 1) | No |
+| 10 Heartbeat failure triggers fail-safe | System invariant | Security Heartbeat, Commit Freeze | No |
+| 11 No unsupervised execution | System invariant | Supervision lease, Sentry, Key Session Proxy | Partly: Check 1 rejects tokens bound to an expired lease |
+
+Conformance evidence for a system-invariant rule is a test or proof of the enforcing mechanism (Appendix E), not a DSC verdict.
 
 ### 10.3 Profile-Specific MAC Policy Content
 
@@ -938,7 +977,7 @@ graph LR
     subgraph Pipeline["Commit Layer — 7-Stage Pipeline"]
         S1["1. WAL Record<br/>━━━━━━━<br/>Log intent for<br/>crash recovery"]
         S2["2. OCC Check<br/>━━━━━━━<br/>World state<br/>unchanged?"]
-        S3["3. Snapshot<br/>━━━━━━━<br/>Rollback Zone<br/>captures state"]
+        S3["3. Safeguard<br/>━━━━━━━<br/>Snapshot / compensation /<br/>deferral per class"]
         S4["4. Execute<br/>━━━━━━━<br/>Send email /<br/>write file / API"]
         S5["5. Record<br/>━━━━━━━<br/>Result to WAL"]
         S6["6. Publish<br/>━━━━━━━<br/>Commit event<br/>to subscribers"]
@@ -948,7 +987,7 @@ graph LR
     S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7
 
     S2 -->|"State changed<br/>(conflict)"| REJECT["❌ Reject<br/>Agent notified"]
-    S4 -->|"Execution<br/>fails"| ROLLBACK["↩️ Rollback<br/>to Stage 3 snapshot"]
+    S4 -->|"Execution fails<br/>or outcome uncertain"| ROLLBACK["↩️ Per effect class:<br/>restore / compensate /<br/>escalate (§13.4–13.5)"]
 
     style S1 fill:#1e40af,color:#fff
     style S2 fill:#1e40af,color:#fff
@@ -963,32 +1002,58 @@ graph LR
 
 ### 13.2 Commit Pipeline
 
-When an intent is ready for execution, it passes through a seven-stage pipeline. First, the WAL records the intent (ensuring recoverability). Second, optimistic concurrency control checks that the world state has not changed since the agent created the intent (another agent might have modified the same resource in the meantime). Third, the Rollback Zone takes a snapshot of the current state of the affected resource (enabling undo). Fourth, the actual execution happens — the email is sent, the file is written, the API call is made. Fifth, the result is recorded in the WAL. Sixth, a commit event is published to all interested agents (via the Pub-Sub system). Seventh, the intent is marked as completed in the Dispatcher.
+When an intent is ready for execution, it passes through a seven-stage pipeline. First, the WAL records the intent (ensuring recoverability). Second, optimistic concurrency control checks that the world state has not changed since the agent created the intent (another agent might have modified the same resource in the meantime). Third, the Rollback Zone stores the safeguard required for the intent's effect class (Section 13.4): a snapshot for a Reversible action, the compensating intent for a Compensable action, or the deferred effect for an Irreversible action whose target permits deferral. Fourth, the actual execution happens — the email is sent, the file is written, the API call is made. Fifth, the result is recorded in the WAL. Sixth, a commit event is published to all interested agents (via the Pub-Sub system). Seventh, the intent is marked as completed in the Dispatcher.
 
-If any stage fails, the pipeline rolls back to the snapshot taken in stage three. The intent is marked as failed, and the originating agent receives a failure notification with the reason.
+If a stage before Stage 4 fails, no external effect has occurred: the intent is marked as failed and the originating agent receives a failure notification with the reason. If Stage 4 fails or its outcome cannot be determined, the Commit Layer acts according to the effect class of the intent (Section 13.4) and the outcome state (Section 13.5): it restores the snapshot of a Reversible action, submits the compensating intent of a Compensable action, and escalates an Irreversible action to the human. Concurrency conflicts are detected in Stage 2 (optimistic concurrency control); they are a property of the Commit Layer and not one of the seven DSC checks.
 
 ### 13.3 Optimistic Concurrency Control with Resource Locking
 
 When an agent creates an intent, it includes a world state snapshot — a hash of the state of the resources the intent will modify. At Stage 2 of the pipeline, the Commit Layer acquires an exclusive lock on the target resource and re-checks the current state against this snapshot. If the state has changed (another agent modified the resource between intent creation and commit), the intent is rejected with a concurrency conflict. The exclusive lock is held through Stage 4 (Execute) and released at Stage 5 (Record) or on rollback, making Stages 2 through 4 atomic for each resource.
 
-Lock granularity is per-resource (a specific file path, a specific email account, a specific API endpoint) — not system-wide, which would serialize all commits unnecessarily. Lock timeout is 30 seconds: if Stage 4 execution takes longer, the lock is released and the commit is rolled back. The agent retries with a fresh world state snapshot.
+Lock granularity is per-resource (a specific file path, a specific email account, a specific API endpoint) — not system-wide, which would serialize all commits unnecessarily. The lock is a lease with a fencing token: a per-resource counter that increases with every lock grant. The default lease is 30 seconds. If Stage 4 is still in flight when the lease expires, the lock SHALL NOT be handed to another intent and the agent SHALL NOT retry with a fresh world state snapshot, because the original execution may still complete. Instead the intent enters the UNCERTAIN state (Section 13.5) and the resource stays locked until the outcome is reconciled. Executors SHALL pass the fencing token to targets that support conditional writes, so that a late execution carrying a stale token is rejected by the target itself.
 
 To prevent lock-based denial of service, lock acquisition counts against the agent's rate limit. If an agent acquires and releases (via rollback) the same resource lock more than three times in ten minutes, the agent is flagged for Security Agent review and its lock priority is reduced so other agents' requests take precedence. After five failed lock-acquire-rollback cycles on the same resource, the agent is paused.
 
-When an agent creates an intent, it includes a world state snapshot — a hash of the state of the resources the intent will modify. When the Commit Layer is ready to execute, it re-checks the current state against this snapshot. If the state has changed (another agent modified the resource between intent creation and commit), the intent is rejected with a concurrency conflict. The agent can then re-read the current state, adjust its intent, and resubmit.
+After a concurrency conflict in Stage 2, the agent can re-read the current state, adjust its intent, and resubmit.
+
+### 13.4 Effect Classes
+
+Not every external effect can be undone. A sent email cannot be recalled, a posted message may already have been read, a payment may not be refundable. The Commit Layer therefore distinguishes three effect classes. The class is declared in the manifest of the tool or connector that performs the effect (Section 30.1) and is signed with it; an agent cannot choose or downgrade the class of its own intent. An effect without a declared class is treated as Irreversible.
+
+| Class | Meaning | Examples | Safeguard (Rule 5) | On failure or undo |
+|-------|---------|----------|--------------------|--------------------|
+| R — Reversible | MAOS can restore the prior state itself | Files in MAOS-managed storage, internal databases, MAOS-owned calendar entries | Snapshot in the Rollback Zone (Stage 3) | Restore snapshot |
+| C — Compensable | The effect cannot be undone, but a defined counter-action exists | Calendar invitation (cancellation), booking (cancellation), order (return), refundable payment (refund) | Compensating intent supplied with the intent and evaluated by the DSC at creation time | Submit the compensating intent through the full pipeline; it never bypasses the DSC or the Commit Layer |
+| I — Irreversible | Neither restoration nor compensation is possible | Sending an email or chat message to an external recipient, disclosing data to a third party, non-refundable payment, deleting data outside MAOS without backup | At least HACF Level 2 (Section 50.4); deferral for the hold period where the target permits it (Section 35); SSE-Required (Section 15.14) | No automatic retry after an uncertain outcome; escalation to the human |
+
+"Undo" in the Human-Machine Interface means: restore for class R, compensate for class C, and cancel-before-release for a deferred class I effect. After a class I effect has been released, the interface SHALL NOT offer undo; it MAY offer a follow-up action (for example a correction email), which is a new intent.
+
+### 13.5 Idempotency and Uncertain Outcomes
+
+Every intent carries an idempotency key that is derived from the intent identifier and stays the same across retries and recovery. Executors SHALL pass this key to every target that supports one (for example an HTTP `Idempotency-Key` header, an email `Message-ID`, a payment client reference), so that a repeated delivery is recognized by the target as the same operation.
+
+The outcome of Stage 4 is recorded as one of three states:
+
+- **SUCCEEDED** — the target confirmed the effect.
+- **FAILED** — the target confirmed that no effect occurred.
+- **UNCERTAIN** — no confirmation either way: lease expiry during execution, crash during Stage 4, network interruption after sending, or an ambiguous response.
+
+An UNCERTAIN intent is reconciled before anything else touches the resource. The Commit Layer first queries the target for the idempotency key where the target supports it. If the target supports idempotent retry, the intent is retried with the same key. Otherwise: a class R intent is resolved by reading the current state and restoring the snapshot if needed; a class C intent is resolved by reading the current state and, if the effect occurred and is unwanted, submitting the compensating intent; a class I intent is never retried automatically and is escalated with a Trusted Decision Packet (Section 43a) at HACF Level 2. The resource lock stays held until the outcome is resolved.
+
+An implementation SHALL NOT claim exactly-once execution for targets that support neither idempotency keys nor outcome queries. Against such targets MAOS guarantees at-most-once for class I and at-least-once with reconciliation for classes R and C, and the Guarantee Matrix (Appendix A) SHALL state this per connector.
 
 
 ## 14. Write-Ahead Log and Crash Recovery
 
 ### 14.1 Purpose
 
-The Write-Ahead Log ensures no loss of committed state changes after any system crash. Before any operation is executed, it is first written to the WAL. If the system crashes mid-execution, the WAL contains enough information to either complete the operation (if it was partially executed) or roll it back (if execution had not yet begun). Uncommitted reasoning state may be replayed or lost depending on checkpoint scope.
+The Write-Ahead Log ensures no loss of the record of committed state changes after any system crash. Before any operation is executed, it is first written to the WAL. If the system crashes mid-execution, the WAL contains enough information to either complete the operation (if it was partially executed) or roll it back (if execution had not yet begun). Uncommitted reasoning state may be replayed or lost depending on checkpoint scope.
 
 **Security implication of reasoning-state loss.** Loss of uncommitted reasoning state matters when the lost state includes in-progress security evaluations, IFC classification work, or Confidence Chain calculations. Implementations SHOULD provide a way for the Security Agent, SSE, or equivalent security-critical services to request local micro-checkpoints of their evaluation state independently of the system-wide checkpoint interval. The recommended micro-checkpoint target for security-critical components is 60 seconds in Hardened and Isolated profiles.
 
 ### 14.2 Recovery Process
 
-On startup, the Boot Manager checks the WAL for uncommitted entries. Each entry is in one of three states: written (the intent was logged but not yet executed — it can be re-executed), executing (the intent was being executed when the crash occurred — it must be checked for partial completion and either completed or rolled back), or committed (the intent was fully executed — no recovery needed, the entry is archived). The recovery process replays uncommitted entries in order, using idempotent execution to ensure that replaying an already-executed operation does not cause duplicates.
+On startup, the Boot Manager checks the WAL for uncommitted entries. Each entry is in one of three states: written (the intent was logged but not yet executed — it can be re-executed), executing (the intent was being executed when the crash occurred — it is treated as UNCERTAIN and reconciled according to Section 13.5; an Irreversible intent is never re-executed automatically), or committed (the intent was fully executed — no recovery needed, the entry is archived). The recovery process replays entries in state written in order, passing each intent's idempotency key (Section 13.5) so that targets supporting idempotency recognize a repeated delivery. Where a target supports neither idempotency keys nor outcome queries, replay is limited to the guarantees stated in Section 13.5.
 
 ### 14.3 Checkpointing
 
@@ -997,19 +1062,19 @@ Periodically, the system creates a checkpoint — a consistent snapshot of the e
 
 ## 14a. Quantum-Resistant Cryptography Architecture
 
-### 14.1 The Quantum Threat
+### 14a.1 The Quantum Threat
 
 Quantum computers running Shor's algorithm can break RSA, ECDSA, ECDH, and all other public-key cryptography based on integer factorization or discrete logarithms. Grover's algorithm halves the effective security of symmetric algorithms and hash functions. MAOS relies on cryptographic signatures for Capability Tokens (DSC Check 1), configuration integrity (DSC Layer 4), Security Heartbeat authentication (DSC Layer 7), inter-node communication, Commander key authority, audit log integrity, and boot chain verification. Without quantum-resistant cryptography, a quantum computer can forge Capability Tokens, sign malicious configurations, and impersonate any node in the system. This is an existential threat.
 
 MAOS therefore mandates post-quantum cryptography for all cryptographic operations, following NIST FIPS 203, 204, and 205 standards published in August 2024.
 
-### 14.2 Cryptographic Agility Layer (CAL)
+### 14a.2 Cryptographic Agility Layer (CAL)
 
 All cryptographic operations in MAOS pass through the Cryptographic Agility Layer — an abstraction that decouples MAOS components from specific cryptographic algorithms. The CAL defines interfaces for five operations: sign/verify, encrypt/decrypt, hash, key-exchange, and MAC. Each interface has a pluggable implementation. Changing the underlying algorithm requires only a CAL configuration update — no other MAOS code changes.
 
 The CAL is part of the DSC's immutable configuration. Changing the active algorithms requires the formal change process (signed configuration, system restart, HACF Level 4).
 
-### 14.3 Mandatory Algorithms
+### 14a.3 Mandatory Algorithms
 
 **Digital Signatures.** All signatures use hybrid ML-DSA-65 (FIPS 204) combined with Ed25519. Both signatures must verify for the operation to succeed. This hybrid approach provides security against both classical and quantum attacks during the transition period. When the cryptographic community reaches consensus that ML-DSA alone is sufficient, the classical component can be removed via the CAL.
 
@@ -1021,11 +1086,11 @@ The CAL is part of the DSC's immutable configuration. Changing the active algori
 
 **MACs.** HMAC-SHA-3-256 for all message authentication, including DSC-to-Voter communication (addressing VULN-H4).
 
-### 14.4 Harvest-Now-Decrypt-Later Defense
+### 14a.4 Harvest-Now-Decrypt-Later Defense
 
 Nation-state adversaries are already exfiltrating encrypted data, storing it, and waiting for quantum computers to decrypt it. MAOS addresses this by ensuring all sensitive data is encrypted with quantum-resistant algorithms from deployment. Data at rest uses AES-256-GCM. Data in transit uses hybrid PQC TLS. The audit log uses AES-256-GCM encryption at rest with SHA-3-256 hash chain.
 
-### 14.5 Algorithm Lifecycle Management
+### 14a.5 Algorithm Lifecycle Management
 
 As NIST and the broader cryptographic community publish new standards (HQC expected 2026-2027, FN-DSA pending, additional signature schemes from the NIST onramp competition), MAOS can integrate them through the CAL without architectural changes. The System Commander receives notifications when the active algorithms approach their recommended end-of-life or when new NIST standards are published.
 
@@ -1035,7 +1100,7 @@ As NIST and the broader cryptographic community publish new standards (HQC expec
 
 ### 15.1 The Fundamental Principle
 
-An LLM cannot be the sole guarantor of security. Research consistently demonstrates that LLM-based security evaluators — regardless of model size, training approach, or guardrail configuration — can be bypassed by sufficiently motivated attackers through prompt injection, adversarial fuzzing, and logic-based exploitation. Industry testing has achieved up to 99 percent bypass rates against LLM-based security judges.
+An LLM cannot be the sole guarantor of security. Research consistently demonstrates that LLM-based security evaluators — regardless of model size, training approach, or guardrail configuration — can be bypassed by sufficiently motivated attackers through prompt injection, adversarial fuzzing, and logic-based exploitation. Published red-team evaluations have reported high bypass rates against LLM-based security judges. MAOS does not rely on any particular measured rate: every LLM-based judge is treated as bypassable by assumption.
 
 MAOS therefore implements a Hybrid Three-Layer Security Architecture where the system's fundamental security NEVER depends on an LLM. LLM-based evaluation provides valuable additional intelligence, but the hard security floor is deterministic code that cannot be "persuaded," "confused," or "jailbroken."
 
@@ -1059,11 +1124,11 @@ The DSC evaluates every request against seven checks, in order. If any check fai
 
 **Check 4 — IFC Taint Verification.** Does the data classification of the request's payload comply with the no-write-down and no-read-up rules? Verification is label comparison — deterministic.
 
-**Check 5 — Mandatory Rule Compliance.** Does the request comply with all eleven Mandatory Rules? Verification is rule evaluation — hardcoded logic.
+**Check 5 — Mandatory Rule Compliance.** Does the request comply with the Mandatory Rules that are decidable per request (Rules 4 and 5, with Rule 7 covered by Check 3)? Verification is rule evaluation — hardcoded logic. The remaining rules are system invariants enforced at the points listed in Section 10.2.1; they are not re-evaluated per request.
 
 **Check 6 — Revocation Epoch Check.** Is the node's revocation epoch current? If not, block until synchronized. Verification is counter comparison.
 
-**Check 7 — Structural Pre-Filter.** Does the request contain known attack patterns (prompt injection signatures, Base64-encoded instructions, Unicode homoglyphs, structural anomalies from the OWASP Agentic AI Top 10)? Verification is pattern matching — regex and heuristic, no LLM.
+**Check 7 — Structural Pre-Filter.** Does the request contain known attack patterns (prompt injection signatures, Base64-encoded instructions, Unicode homoglyphs, structural anomalies from the OWASP Agentic AI Top 10)? Verification is pattern matching — regex and heuristic, no LLM. Check 7 is deterministic but intentionally incomplete: a match proves a known attack pattern, the absence of a match proves nothing. Its pattern set is the only part of the DSC configuration that may be extended at runtime (Section 15.7.4).
 
 The DSC runs in Ring 0 alongside the Commit Layer. It has no LLM dependency. It operates identically whether or not any LLM is available. It is the security mechanism that Mandatory Rule 6 refers to: no commit without DSC clearance.
 
@@ -1081,7 +1146,7 @@ The SSE is hardened through four mechanisms (unchanged from v4.0): Model Diversi
 
 **Full Mode (GREEN).** Both DSC and SSE are operational. Every request passes through all seven DSC checks AND the SSE semantic evaluation. This is the highest security level — deterministic enforcement plus semantic intelligence.
 
-**Rule-Based Mode (YELLOW).** The SSE is unavailable. Only the DSC operates. All seven deterministic checks are enforced. Semantic analysis is suspended. Additional restrictions by Security Profile: in Standard, Ring 3 agents are paused; in Hardened, Ring 3 agents are paused and Ring 2 agents operate with reduced capabilities; in Isolated, all agents are paused except those explicitly marked as critical. Rule-Based Mode is FULLY SECURE — it is less intelligent but not less safe.
+**Rule-Based Mode (YELLOW).** The SSE is unavailable. Only the DSC operates. All seven deterministic checks are enforced. Semantic analysis is suspended. Additional restrictions by Security Profile: in Standard, Ring 3 agents are paused; in Hardened, Ring 3 agents are paused and Ring 2 agents operate with reduced capabilities; in Isolated, all agents are paused except those explicitly marked as critical. In Rule-Based Mode the deterministic security floor is fully intact, but the detection of semantic attacks — formally permitted but contextually wrong actions, novel prompt injection — is lost. This residual risk is bounded by Section 15.14: SSE-Required actions are queued, not executed. Rule-Based Mode is therefore safe for the action classes it still executes; it is not equivalent to Full Mode.
 
 **Emergency Mode (RED).** A critical failure has occurred (DSC configuration corrupted, audit log chain broken, or fundamental integrity violation). Only Mandatory Rules are enforced at the hardware/OS level. All agents are paused. The TSCA activates. Human intervention is required. This mode exists because even the DSC could theoretically have a code bug — Emergency Mode is the absolute last resort.
 
@@ -1094,10 +1159,10 @@ Step 2: DSC seven-check evaluation — is this request formally permitted? (Laye
 Step 3: SSE semantic evaluation — is this request contextually safe? (Layer 3, if available)
 Step 4: All layers passed — request proceeds to Commit Layer.
 
-If Layer 1 blocks: request is impossible. No log entry needed — the request never existed.
+If Layer 1 blocks: the request cannot take effect. The blocked attempt (seccomp violation, namespace or VM exit attempt, denied egress) SHALL be recorded by the Sentry as a Layer-1 violation event and raised as a Danger Signal, because an attempted boundary crossing is a strong compromise indicator.
 If Layer 2 blocks: request is denied with structured explanation (Constitutional Right 1). Logged in Audit Trail.
 If Layer 3 blocks: request is denied with semantic explanation. Logged in Audit Trail. Agent may appeal (Constitutional Right 2).
-If Layer 3 is unavailable: request proceeds after Layer 2 approval. Logged as "DSC-only clearance."
+If Layer 3 is unavailable: request proceeds after Layer 2 approval and is logged as "DSC-only clearance" — unless it is SSE-Required (Section 15.14), in which case it is queued with status pending_sse_evaluation.
 
 This pipeline ensures that the system is secure at every degradation level: full capability when all layers operate, reduced intelligence but full security when the SSE fails, and absolute containment when everything fails (Emergency Mode).
 
@@ -1140,6 +1205,8 @@ The DSC configuration — the seven check definitions, the eleven Mandatory Rule
 **Three-Way Configuration Consensus.** Every 5 minutes, the three DSC instances compare their configuration hashes. If any instance reports a different hash, it is immediately excluded from the Voter and the anomaly is reported to the TSCA and System Commander. The remaining instances reload their configuration from the signed source as a precaution.
 
 **Formal Change Process.** Changing the DSC configuration requires: a new configuration file signed with the System Commander's cryptographic key, a full system restart (the configuration cannot be hot-reloaded — this is by design, making runtime configuration attacks impossible), and explicit confirmation through HACF Level 4 (Override). This three-step process means an attacker must steal the Commander's signing key, force a system restart without detection, and bypass the HACF confirmation — simultaneously.
+
+**Exception: additive pattern updates for Check 7.** Prompt-injection techniques change faster than a restart cycle allows. The pattern set of Check 7 MAY therefore be extended at runtime by a pattern update that is signed with the System Commander's key, carries a monotonically increasing version, and only adds deny patterns. Such an update can make the DSC stricter, never more permissive: the worst outcome of a malicious update is false denials, which is a denial-of-service risk, not a bypass. Each update is logged, reflected in the configuration hash of the Security Heartbeat, and applied to all DSC instances before it takes effect. Removing or weakening a pattern requires the full Formal Change Process.
 
 #### 15.7.5 Layer 5 — Input Sanitizer (Poisoning Defense)
 
@@ -1193,7 +1260,7 @@ To compromise the DSC, an attacker must breach multiple layers simultaneously:
 
 **Attack: Input Crafting (Crash).** Send a malformed intent that crashes the DSC. Blocked by: Layer 5 (Input Sanitizer — formally verifiable, rejects malformed inputs), Layer 2 (Watchdog — crashed DSC detected within 100ms, hot spare activated), Layer 1 (other instances continue operating).
 
-**Attack: Denial of Service.** Flood the DSC with requests to prevent legitimate commits. Blocked by: Layer 5 (Input Sanitizer — rate limiting at the input layer), the system-level rate limiting in Mandatory Rule 5, and the DSC's own bounded processing time per request.
+**Attack: Denial of Service.** Flood the DSC with requests to prevent legitimate commits. Blocked by: Layer 5 (Input Sanitizer — rate limiting at the input layer), the per-agent rate limiting of DSC Check 2, and the DSC's own bounded processing time per request.
 
 **Attack: Replay.** Capture and replay old Security Heartbeats to mask DSC failure. Blocked by: Layer 7 (monotonic counter — replayed heartbeats have stale counter values).
 
@@ -1226,7 +1293,7 @@ In Isolated Security Profile, DSC-to-Voter communication uses hardware-controlle
 
 ### 15.13 Hot Spare State Synchronization
 
-Hot spare DSC instances maintain shadow copies of all stateful DSC data: rate limit counters, budget trackers, revocation epoch values, and recent evaluation history. The active DSC synchronizes this state to the spare every heartbeat interval (100 milliseconds). On activation, the spare applies a conservative merge: it takes the higher value for counters (more restrictive) and the lower value for budgets (less permissive). This prevents an attacker from exploiting the activation of a fresh spare to bypass rate limits or budget constraints.
+Hot spare DSC instances maintain shadow copies of all stateful DSC data: rate limit counters, budget trackers, revocation epoch values, and recent evaluation history. The active DSC synchronizes this state to the spare every 100 milliseconds, independently of the Security Heartbeat interval (Section 15.7.7). On activation, the spare applies a conservative merge: it takes the higher value for counters (more restrictive) and the lower value for budgets (less permissive). This prevents an attacker from exploiting the activation of a fresh spare to bypass rate limits or budget constraints.
 
 ### 15.14 Mandatory SSE Actions
 
@@ -1766,22 +1833,17 @@ All outbound network traffic from Ring 3 agents is routed through a transparent 
 
 Health checks are not on a fixed schedule — they adapt to system activity. Immediate triggers (run a health check now) include crash recovery completion, agent restart, security incidents, budget limit reached, high commit rate, stale agent detection, and configuration changes. When the system is under stress, check frequency increases: YELLOW status doubles the frequency, ORANGE quadruples it, and RED triggers continuous monitoring. When the system is idle, check frequency decreases to conserve resources.
 
----
-
-# Part VI — MAOS Core: Agent Layer (Ring 2-3)
-
-
-### 29.3 A2A Security Gateway
+### 29.4 A2A Security Gateway
 
 The Agent-to-Agent (A2A) Protocol enables cross-system agent communication. MAOS supports A2A for interoperability but treats ALL external A2A communication as an untrusted boundary crossing. No external agent communicates directly with an internal agent — all A2A traffic passes through the A2A Security Gateway, a Ring 1 System Service (Skin Cell).
 
-#### 29.3.1 External Agent Registry
+#### 29.4.1 External Agent Registry
 
 MAOS maintains an allowlist of authorized external agents. Each entry contains: agent identifier, pinned certificate (from the external agent's PKI), permitted task types, maximum IFC classification for exchanged data, per-agent rate limits (messages per minute, data volume per hour, concurrent tasks), and an expiration date requiring periodic re-authorization. Agents not in the Registry are blocked. Adding an agent to the Registry requires Commander approval (HACF Level 2 minimum).
 
-#### 29.3.2 Seven Gateway Checks
+#### 29.4.2 Seven Gateway Checks
 
-Every inbound A2A message passes through seven checks in order.
+Every inbound A2A message passes through seven checks in order. These gateway checks are distinct from the seven DSC checks of Section 15.3; an inbound message must pass the gateway checks, and every intent derived from it must additionally pass the DSC.
 
 **Check 1 — Agent Card Verification.** The external agent's AgentCard must be signed by a CA that MAOS recognizes. Unsigned or self-signed cards are rejected unless the Commander has granted an explicit exception. The card is verified against the External Agent Registry.
 
@@ -1789,7 +1851,7 @@ Every inbound A2A message passes through seven checks in order.
 
 **Check 3 — IFC Taint Tagging.** All inbound data receives the `EXTERNAL_UNTRUSTED` IFC tag. This tag propagates through the entire processing chain. IFC rules prevent `EXTERNAL_UNTRUSTED` data from being combined with `CONFIDENTIAL` or higher data and sent outside the system.
 
-**Check 4 — Content Scanning.** The DSC Pre-Filter (Check 7) scans for prompt injection patterns. Detected injection attempts are blocked before reaching any internal agent. This interrupts the prompt injection cascade at the system boundary rather than at the target agent.
+**Check 4 — Content Scanning.** The DSC Structural Pre-Filter (DSC Check 7, Section 15.3) scans for prompt injection patterns. Detected injection attempts are blocked before reaching any internal agent. This interrupts the prompt injection cascade at the system boundary rather than at the target agent.
 
 **Check 5 — SSE Mandatory Evaluation.** Every A2A message is evaluated by the SSE with no sampling — full evaluation on every message. A2A communication is classified as SSE-Required (Section 15.14). If the SSE is offline (Rule-Based Mode), A2A communication is queued, not forwarded. In Rule-Based Mode, MAOS is isolated from the external A2A world. This is a security feature, not a limitation.
 
@@ -1797,15 +1859,20 @@ Every inbound A2A message passes through seven checks in order.
 
 **Check 7 — HACF Level Enforcement.** Interactions that send data above `INTERNAL` classification externally require HACF Level 2 (Commander recommendation). Interactions that authorize an external agent to execute actions within MAOS require HACF Level 3 (Deliberate). Interactions with newly registered external agents require HACF Level 3 for the first 7 days.
 
-#### 29.3.3 Outbound A2A Security
+#### 29.4.3 Outbound A2A Security
 
 All outbound A2A messages are checked by the DSC for IFC compliance (no classified data leakage) and evaluated by the SSE for data loss prevention. MAOS' own AgentCard exposes only the capabilities that the Commander has explicitly approved for external communication — not internal system capabilities.
 
 Outbound A2A requests are themselves a potential information-leak surface. The A2A Security Gateway SHALL therefore apply the same IFC classification check to data carried in outbound requests that it applies to outbound API and filesystem operations. Outbound requests containing data classified `INTERNAL` or above SHALL be logged with classification level and data volume. Aggregate outbound volume to external A2A agents SHALL feed into HACF Aggregate Monitoring. Thresholds SHOULD be tracked separately for each external A2A peer, with a recommended default threshold of 50 percent of the general outbound threshold for any single external A2A agent.
 
-#### 29.3.4 Confidence Chain Extension for A2A
+#### 29.4.4 Confidence Chain Extension for A2A
 
 Data received from external agents enters the Confidence Chain with a low base confidence (default: 0.3). The internal agent multiplies its own confidence by this low upstream value. If the resulting confidence falls below the Commit Layer threshold, the action is escalated to the Commander rather than committed autonomously. External agents' self-reported confidence scores are ignored — MAOS applies its own assessment.
+
+---
+
+# Part VI — MAOS Core: Agent Layer (Ring 2-3)
+
 
 ## 30. Agent Fundamentals
 
@@ -1813,7 +1880,7 @@ Data received from external agents enters the Confidence Chain with a low base c
 
 Every MAOS agent implements the Agent Interface Definition (AID), a standardized contract defining how agents interact with the system. The AID specifies three compliance levels. Level 1 (Basic) agents implement the minimum: respond to tasks, report results, and handle TERMINATE signals. Level 2 (Standard) agents add signal handling, checkpointing, restore, pause, and resume, making them fully manageable by the Dispatcher. Level 3 (Advanced) agents add distributed capabilities: migration between nodes, protocol negotiation, and capability negotiation.
 
-The Agent Manifest declares identity (name, version, maker, license), trust classification (Transparent, Inspectable, or Opaque — see Section 41.5), capabilities, requirements (LLM needs, hardware, dependencies), resource envelope (token limits, memory limits, I/O limits), permissions (filesystem, network, tools, messaging, data classification), integrity (SHA-256 hashes), and signatures. Tool and runtime dependencies are declared in a toolDependencies section and verified during onboarding. Agents receive runtime context through environment variables at three levels: system-wide, per-agent, and per-session.
+The Agent Manifest declares identity (name, version, maker, license), trust classification (Transparent, Inspectable, or Opaque — see Section 41.5), capabilities, requirements (LLM needs, hardware, dependencies), resource envelope (token limits, memory limits, I/O limits), permissions (filesystem, network, tools, messaging, data classification), integrity (SHA-3-256 hashes, Section 14a.3), and signatures. Tool and runtime dependencies are declared in a toolDependencies section and verified during onboarding. Agents receive runtime context through environment variables at three levels: system-wide, per-agent, and per-session.
 
 ### 30.2 Agent Communication, Lifecycle, and Reset
 
@@ -2178,7 +2245,9 @@ The Preventive Security Log is the unique security feature that distinguishes MA
 
 ## 35. Rollback Zone
 
-Before any destructive action, the Commit Layer takes a snapshot of the current state and stores it in the Rollback Zone. If the action turns out to be wrong (the user requests an undo, or the system detects a problem), the state can be restored from the snapshot. The Rollback Zone has a configurable hold period — during this period, the snapshot is retained and undo is possible. After the hold period expires, the snapshot is archived. The hold period defaults to sixty minutes for email operations, twenty-four hours for file deletions, and seven days for account-level changes.
+The Rollback Zone holds the safeguards required by Rule 5 for the three effect classes of Section 13.4. For a Reversible action it stores a snapshot of the affected state; if the action turns out to be wrong (the user requests an undo, or the system detects a problem), the state is restored from the snapshot. For a Compensable action it stores the pre-evaluated compensating intent. For an Irreversible action whose target permits deferral, it holds the effect itself in an outbox: the effect is released only when the hold period expires, and an undo during the hold period cancels it before release. Once a class I effect has been released, no undo exists.
+
+The hold period is configurable. It defaults to twenty-four hours for file deletions, seven days for account-level changes, and — for deferred Irreversible actions such as external email — a send delay of sixty seconds in Standard profile and five minutes in Hardened and Isolated profiles. The send delay is deliberately short, because it delays the user's own intended effect; it is a last-chance cancellation window, not a substitute for HACF confirmation. After the hold period expires, snapshots and compensating intents are archived.
 
 
 ## 36. Runtime Integrity Monitoring
@@ -2268,7 +2337,7 @@ Tier 3 (Red Team): quarterly adversarial testing where a dedicated attacker agen
 
 ### 37.4 Hash Algorithm Future-Proofing
 
-The Audit Log hash chain (Mandatory Rule 3) uses SHA-256 as the current algorithm. The Audit Log header includes a hash_algorithm field that enables migration to SHA-3 or post-quantum algorithms without breaking the chain. Migration protocol: new entries use the new algorithm; a bridge entry links the old chain to the new chain containing both hashes.
+The Audit Log hash chain (Mandatory Rule 3) uses SHA-3-256 (Section 14a.3). The Audit Log header includes a hash_algorithm field that enables migration to future algorithms without breaking the chain; deployments upgrading from a pre-v5.9 SHA-256 chain use the bridge entry described below. Migration protocol: new entries use the new algorithm; a bridge entry links the old chain to the new chain containing both hashes.
 
 ### 37.5 Appeal Rate Limiting
 
@@ -2360,7 +2429,7 @@ Quantum computers pose two categories of threat to MAOS.
 
 **Harvest-Now-Decrypt-Later (HNDL).** Adversaries capture encrypted data today for future quantum decryption. MAOS addresses this through AES-256-GCM encryption at rest for all sensitive data and hybrid PQC TLS for data in transit. Data encrypted by MAOS today will remain secure even when quantum computers become available.
 
-**Cryptographic Agility.** The Cryptographic Agility Layer (Section 14.2) ensures that MAOS can adopt new algorithms as the post-quantum landscape evolves, without architectural changes.
+**Cryptographic Agility.** The Cryptographic Agility Layer (Section 14a.2) ensures that MAOS can adopt new algorithms as the post-quantum landscape evolves, without architectural changes.
 
 
 ### 37.10 Corrupted Environment Defense
@@ -2375,7 +2444,7 @@ MAOS operates on the assumption that every layer of its environment may be compr
 
 **Scenario 4 — Compromised LLM Providers.** Architecturally solved: MAOS' fundamental security never depends on an LLM (Section 15.1). A compromised provider causes SSE failure and Cognitive Cell degradation — the system enters Rule-Based Mode (secure but not intelligent). Model diversity across providers limits blast radius. The Canary System detects compromised LLM responses.
 
-**Scenario 5 — Compromised Network.** PQC-TLS with certificate pinning for all critical connections. MAOS pins certificates of known communication partners (LLM providers, other MAOS nodes). DNS poisoning is mitigated through hardcoded IP addresses for critical endpoints (configurable). The A2A Security Gateway (Section 29.3) treats all external network communication as untrusted by default.
+**Scenario 5 — Compromised Network.** PQC-TLS with certificate pinning for all critical connections. MAOS pins certificates of known communication partners (LLM providers, other MAOS nodes). DNS poisoning is mitigated through hardcoded IP addresses for critical endpoints (configurable). The A2A Security Gateway (Section 29.4) treats all external network communication as untrusted by default.
 
 **The Ultimate Principle.** MAOS trusts only one thing absolutely: the mathematics in the DSC. The DSC cannot be persuaded, confused, or socially engineered. It computes, compares, and decides — deterministically, verifiably, correctly. Everything else — the OS, the hypervisor, the network, the LLM, even the Commander — is verified before trust is extended.
 
@@ -3413,7 +3482,7 @@ In the Two-Stage Architecture (Section 40), every Worker node runs a full MAOS i
 
 Gateway configurations are defined centrally (by the Central Security Policy Authority on the Controller) and distributed to Workers along with other security policies. This ensures consistent Gateway enforcement across the entire cluster. A Gateway configuration that permits access to api.openai.com on the Controller also permits it on every Worker — and a configuration that blocks a specific domain blocks it everywhere.
 
-When an agent migrates between Workers (Section 40.3.5), the source Worker serializes the agent's state and behavioral fingerprint. The target Worker provisions a new AEP with the same configuration, restores the agent state, and loads the behavioral fingerprint into the new Sentry. The migration is transparent to the agent — it sees the same Gateways before and after.
+When an agent migrates between Workers, the source Worker serializes the agent's state and behavioral fingerprint. The target Worker provisions a new AEP with the same configuration, restores the agent state, and loads the behavioral fingerprint into the new Sentry. The migration is transparent to the agent — it sees the same Gateways before and after.
 
 
 ---
@@ -3778,7 +3847,11 @@ An implementation must not claim guarantees beyond its declared maturity state. 
 | MLFQ | Multi-Level Feedback Queue — the scheduling algorithm used by the Dispatcher |
 | PSL | Preventive Security Log — pre-execution security evaluation |
 | Ring | Protection level (0=kernel, 1=system, 2=trusted agents, 3=untrusted agents) |
-| Rollback Zone | Snapshot storage enabling undo of destructive actions |
+| Rollback Zone | Holds the Rule 5 safeguards per effect class: snapshots (Reversible), compensating intents (Compensable), and deferred effects during the hold period (Irreversible) |
+| Effect Class | Classification of an external effect as Reversible, Compensable, or Irreversible; declared in the signed tool or connector manifest, never by the agent (Section 13.4) |
+| Idempotency Key | Per-intent key, stable across retries and recovery, passed to targets so that a repeated delivery is recognized as the same operation (Section 13.5) |
+| UNCERTAIN (outcome) | Commit outcome state when neither success nor absence of effect is confirmed; requires reconciliation before the resource is released (Section 13.5) |
+| Supervision Lease | Time-limited lease from the supervising MAOS instance to which an agent's tokens, key sessions, and routes are bound; enforces Rule 11 from outside the agent |
 | Task Orchestrator | Decomposes user requests into agent sub-tasks |
 | UPL | Unified Platform Layer — abstraction with 6 swappable providers |
 | Vector Clock | Data structure for causal ordering of events across agents |
@@ -3942,7 +4015,7 @@ Every Pod, at every level, has exactly ten elements.
 
 **Isolation** defines how strongly the Pod is separated from its environment. For Agent Pods, Isolation is the five-level hierarchy from V8 Isolate to Confidential VM (Section 41.4). For System Pods, Isolation is the OS-level process separation. For Cluster Pods, Isolation is network segmentation and encryption.
 
-**Checkpoint** enables state preservation and recovery. For an Agent Pod, Checkpoint is the agent state snapshot stored during migration or before termination (Section 40.5). For a System Pod, Checkpoint is the WAL and Dual-Write mechanism (Section 14). For a Cluster Pod, Checkpoint is the Raft consensus log (see Redundancy Guide).
+**Checkpoint** enables state preservation and recovery. For an Agent Pod, Checkpoint is the agent state snapshot stored during migration or before termination (Section 41.9). For a System Pod, Checkpoint is the WAL and Dual-Write mechanism (Section 14). For a Cluster Pod, Checkpoint is the Raft consensus log (see Redundancy Guide).
 
 **Autonomy** defines what happens when the Pod loses contact with its parent. For Agent Pods, subagent rules define cascading termination (Section 40.5.3). For System Pods, Autonomous Mode defines graduated behavior at disconnect (Section 40.7). For Cluster Pods, Sub-Sovereign Full Autonomy allows independent operation.
 
@@ -4105,7 +4178,7 @@ Every Pod follows the same lifecycle, regardless of its level in the hierarchy. 
 
 **Phase 4 — Degradation.** The Pod's Health metrics indicate declining performance. For Agent Pods, this may be cognitive exhaustion (detected by ACIL's Cognitive Load Manager). For System Pods, this may be resource pressure or component failures (triggering Degraded Modes). The Sentry escalates to the parent Pod's Sentry.
 
-**Phase 5 — Recovery or Migration.** If degradation is recoverable, the Sentry initiates repair (fresh LLM session for agents, component restart for systems). If not recoverable locally, the Pod's state is checkpointed and migrated to a new host. For Agent Pods, this is agent migration (Section 40.5). For System Pods, this is failover (see Redundancy Guide).
+**Phase 5 — Recovery or Migration.** If degradation is recoverable, the Sentry initiates repair (fresh LLM session for agents, component restart for systems). If not recoverable locally, the Pod's state is checkpointed and migrated to a new host. For Agent Pods, this is agent migration (Section 41.9). For System Pods, this is failover (see Redundancy Guide).
 
 **Phase 6 — Termination.** The Pod is shut down. State is checkpointed (Constitutional Right 4 — Graceful Degradation). Resources are reclaimed. The parent Pod is notified. Child Pods are terminated recursively (cascading termination). The Audit Log records the termination reason and final state.
 
@@ -4472,6 +4545,7 @@ MAOS standards-alignment statements are control-family mappings and assurance ta
 |----------|---------|-----------------|-----------|----------|------------|
 | No committed-state loss | all | all | all | crash-injection suite | uncommitted reasoning buffers |
 | Commit-layer mediation of side effects | all | all | all | integration tests + trace audit | read-only observation path |
+| Exactly-once external effect | all | all | all | per-connector idempotency/outcome-query test | connectors without idempotency key or outcome query: at-most-once (class I) or at-least-once with reconciliation (R, C) |
 | Strong isolation from host peers | Hardened/Isolated | appliance/container/cloud | Sovereign/Sentinel/Pawn | sandbox escape tests | Standard profile |
 
 ## Appendix B — Architecture Maturity Declaration Template
@@ -4518,6 +4592,9 @@ Minimum required suites:
 5. degraded-mode transitions and fail-close behavior
 6. distributed disconnect and rejoin behavior
 7. HACF override logging and mandatory-rule preservation
+8. effect-class handling: undeclared class treated as Irreversible; restore, compensate, and cancel-before-release paths
+9. uncertain outcomes: lease expiry and crash during Stage 4 never lead to automatic re-execution of an Irreversible intent
+10. supervision-lease expiry: tokens, key sessions, and routes of an unsupervised agent are revoked without the agent's cooperation
 
 ## Appendix F — Normative Terminology Levels
 
